@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+  .canvas{
+
+  }
+</head>
+<body>
+  <div id="app">
+    <div class="canvas">
+      <div class="roo" v-for="(row,y) in pixelData">
+        <span @click="drawdot()" class="dot" v-for="(dotColor,x) in row" :style="{bacground:dotColor}"></span>
+      </div>
+    </div>
+    <label for="c of commonColors">
+      <input type="radio" :value="c" v-model="color">{{c}}
+
+    </label>
+  </div>
+</body>
+<script src="vue-2.5.17.js">
+  cosnt app = new Vue({
+    el:'#app',
+    data(){
+      return {
+        pixelData:[],
+        commomColors:['red','orange','green','blue']
+      }
+    },
+    methods:{
+      drawdot(x,y,color){
+        this.ws.send(JSON.stringify({
+          type: 'drawdot',
+          x,y,color,
+        }))
+      }
+    },
+    mounted(){
+      var ws = new WebSocket('ws://localhost:9095/pixel')
+      this.ws = ws 
+      ws.onmessage = ({data} => { //??
+        data = JSON.parse(data)
+        it(data.type === 'init'){
+          this.pixelData = data.pixelData
+        }else if(data.type === "updatedot"){
+          Vue.set(this.pixelData[data.y],data.x,data.color)
+        }
+      })
+    }
+  })
+</script>
+</html>
