@@ -4,31 +4,45 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <title>Document</title>
-  .canvas{
-
-  }
+  <title>Pixel Painter</title>
+  <style>
+    .row {
+      display:flex;
+    }
+    .dot {
+      width:10px;
+      height:10px;
+      border:2px solid;
+    }
+    .canvas{
+      border:2px solid;
+      width:max-content;
+    }
+  
+  </style>
 </head>
 <body>
   <div id="app">
     <div class="canvas">
-      <div class="roo" v-for="(row,y) in pixelData">
-        <span @click="drawdot()" class="dot" v-for="(dotColor,x) in row" :style="{bacground:dotColor}"></span>
+      <div class="row" v-for="(row,y) in pixelData">
+        <span @click="drawdot(x,y,color)" class="dot" v-for="(dotColor,x) in row" :style="{background:dotColor}"></span>
       </div>
     </div>
-    <label for="c of commonColors">
+    <label v-for="c of commonColors" :style="{color:c}"> 
+      <!-- 对象里不许有；所以插值的style也不能有分号的结尾 -->
       <input type="radio" :value="c" v-model="color">{{c}}
-
     </label>
   </div>
 </body>
-<script src="vue-2.5.17.js">
-  cosnt app = new Vue({
+<script src="vue-2.5.17.js"></script>
+<script>
+  const app = new Vue({
     el:'#app',
     data(){
       return {
         pixelData:[],
-        commomColors:['red','orange','green','blue']
+        commonColors:['red','orange','green','blue','yellow','black'],
+        color:'red',
       }
     },
     methods:{
@@ -39,17 +53,24 @@
         }))
       }
     },
-    mounted(){
+    mounted(){ //这种写法不是=>这种this会变的function ，就是传统的function
       var ws = new WebSocket('ws://localhost:9095/pixel')
       this.ws = ws 
-      ws.onmessage = ({data} => { //??
-        data = JSON.parse(data)
-        it(data.type === 'init'){
+      ws.onmessage = ({data}) => {  
+        //传进来的参数不管，把这个参数的data字段拿出来赋值了
+        //解构赋值
+        //let node = { type:"xxx",name:"foo"}
+        //let {type,name} = node  type = "xxx" name="foo"
+        data = JSON.parse(data) //如果不用箭头函数 this的值会变成 ws
+        //服务器先发过来画布的状态（每个点的状态 
+
+        if(data.type === 'init'){
           this.pixelData = data.pixelData
-        }else if(data.type === "updatedot"){
-          Vue.set(this.pixelData[data.y],data.x,data.color)
+        } else if(data.type == "updatedot"){
+          Vue.set(this.pixelData[data.y],data.x ,data.color)
+          //对象，要设置的属性，设置为的值
         }
-      })
+      }
     }
   })
 </script>
