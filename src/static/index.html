@@ -17,17 +17,25 @@
     .canvas{
       border:2px solid;
       width:max-content;
+      height:30px;
     }
-  
+    canvas{
+      /* width:200px; 如果canvas设置了大小，放大时会按显示的宽高来算，这样很容易就超出画布范围 */
+    }
   </style>
 </head>
 <body>
   <div id="app">
     <div class="canvas">
-      <div class="row" v-for="(row,y) in pixelData">
+      <!--<div class="row" v-for="(row,y) in pixelData">
         <span @click="drawdot(x,y,color)" class="dot" v-for="(dotColor,x) in row" :style="{background:dotColor}"></span>
-      </div>
+      </div> 被性能优化掉了-->
+      <canvas @click="drawdot" ref="canvas" :width="width" :height="height"> </canvas>
     </div>
+
+   
+    <input type="color" v-model="color"> 
+    <!-- 颜色选择器可以用饿了吗上的组件 -->
     <label v-for="c of commonColors" :style="{color:c}"> 
       <!-- 对象里不许有；所以插值的style也不能有分号的结尾 -->
       <input type="radio" :value="c" v-model="color">{{c}}
@@ -43,19 +51,25 @@
         pixelData:[],
         commonColors:['red','orange','green','blue','yellow','black'],
         color:'red',
+        width:0,
+        height:0
       }
     },
     methods:{
-      drawdot(x,y,color){
+      drawdot(e){
         this.ws.send(JSON.stringify({
           type: 'drawdot',
-          x,y,color,
+          x:e.layerX,
+          y:e.layerY,
+          color:this.color,
         }))
       }
     },
     mounted(){ //这种写法不是=>这种this会变的function ，就是传统的function
       var ws = new WebSocket('ws://localhost:9095/pixel')
       this.ws = ws 
+      var canvas = this.$refs.canvas
+      var ctx = canvas.getContext('2d')
       ws.onmessage = ({data}) => {  
         //传进来的参数不管，把这个参数的data字段拿出来赋值了
         //解构赋值
@@ -65,10 +79,22 @@
         //服务器先发过来画布的状态（每个点的状态 
 
         if(data.type === 'init'){
-          this.pixelData = data.pixelData
+          // this.pixelData = data.pixelData
+          this.width = data.pixelData[0].length
+          this.height = data.pixelData.length
+          Vue.nextTick(() => { //要canvas被重新渲染之后才画 
+            data.pixelData.forEach((row,y) => {
+              row.forEach((color,x) => {
+                ctx.fillStyle = color
+                ctx.fillRect(x,y,1,1)
+              }) 
+            })
+          })
         } else if(data.type == "updatedot"){
-          Vue.set(this.pixelData[data.y],data.x ,data.color)
+          // Vue.set(this.pixelData[data.y],data.x ,data.color)
           //对象，要设置的属性，设置为的值
+          ctx.fillStyle = data.color
+          ctx.fillRect(data.x,data.y,1,1)
         }
       }
     }
