@@ -30,15 +30,15 @@
       <!--<div class="row" v-for="(row,y) in pixelData">
         <span @click="drawdot(x,y,color)" class="dot" v-for="(dotColor,x) in row" :style="{background:dotColor}"></span>
       </div> 被性能优化掉了-->
-      <canvas @click="drawdot" ref="canvas" :width="width" :height="height"> </canvas>
+      <canvas @click="handleCanvasClick" ref="canvas" :width="width" :height="height"> </canvas>
     </div>
-
+    <button @click="isPickingColor=true">{{isPickingColor ? '正在取色' : '取色'}}</button>
    
     <input type="color" v-model="color"> 
     <!-- 颜色选择器可以用饿了吗上的组件 -->
-    <label v-for="c of commonColors" :style="{color:c}"> 
+    <label v-for="c of commonColors" :style="{color:c.name}"> 
       <!-- 对象里不许有；所以插值的style也不能有分号的结尾 -->
-      <input type="radio" :value="c" v-model="color">{{c}}
+      <input type="radio" v-model="color" :value="c.value" >{{c.name}}
     </label>
   </div>
 </body>
@@ -49,13 +49,53 @@
     data(){
       return {
         pixelData:[],
-        commonColors:['red','orange','green','blue','yellow','black'],
-        color:'red',
+        commonColors:[{
+          name:'red',
+          value:'#ff0000'
+        },{
+          name:'yellow',
+          value:'#ffff00'
+        },{
+          name:'green',
+          value:'#008000'
+        },{
+          name:'blue',
+          value:'#0000ff'
+        },{
+          name:'black',
+          value:'#000000'
+        }],
+        color:'#ff0000',
         width:0,
-        height:0
+        height:0,
+        isPickingColor:false,
       }
     },
     methods:{
+      //子父通信 时候 ，自定义事件，一个事件 里面其实可能包好着多个事件 
+      handleCanvasClick(e){ //一个函数分发两种情况
+        if(this.isPickingColor){
+          this.pickColor(e)
+        }else{
+          this.drawdot(e)
+        }
+      },
+      rgba2hex(dot){
+        //注意：uint8map出来的也是uint8
+        dot = Array.from(dot)
+        dot = dot.map(it => it.toString(16).padStart(2,'0'))
+        
+        return '#' + dot[0] + dot[1] + dot[2]
+      },
+      pickColor(e){
+        var x = e.layerX
+        var y = e.layerY
+        var p = this.ctx.getImageData(x,y,1,1).data
+        //int8ClampedArray(4) [255, 255, 255, 255] 取到的是1*1的rgba颜色数组，而如果是2*2则是返回四个点16项的数组
+        var hexColor = this.rgba2hex(p)
+        this.color = hexColor
+        this.isPickingColor = false
+      },
       drawdot(e){
         this.ws.send(JSON.stringify({
           type: 'drawdot',
@@ -69,7 +109,9 @@
       var ws = new WebSocket('ws://localhost:9095/pixel')
       this.ws = ws 
       var canvas = this.$refs.canvas
+      canvas.style.imageRendering = 'pixelated' //在浏览器中的图片显示不有模糊效果
       var ctx = canvas.getContext('2d')
+      this.ctx = ctx 
       ws.onmessage = ({data}) => {  
         //传进来的参数不管，把这个参数的data字段拿出来赋值了
         //解构赋值
