@@ -17,7 +17,6 @@
     .canvas{
       border:2px solid;
       width:max-content;
-      height:30px;
     }
     canvas{
       /* width:200px; 如果canvas设置了大小，放大时会按显示的宽高来算，这样很容易就超出画布范围 */
@@ -66,8 +65,8 @@
           value:'#000000'
         }],
         color:'#ff0000',
-        width:0,
-        height:0,
+        width:256,
+        height:256,
         isPickingColor:false,
       }
     },
@@ -112,31 +111,46 @@
       canvas.style.imageRendering = 'pixelated' //在浏览器中的图片显示不有模糊效果
       var ctx = canvas.getContext('2d')
       this.ctx = ctx 
-      ws.onmessage = ({data}) => {  
+      ws.onmessage = (e) => {
+        //以图片形式储存之后 传来的就有可能是一个 blob了
+        // 不能用之前结构赋值的方法直接读data字段
+        var data = e.data 
+      // ws.onmessage = ({data}) => {  
         //传进来的参数不管，把这个参数的data字段拿出来赋值了
         //解构赋值
         //let node = { type:"xxx",name:"foo"}
-        //let {type,name} = node  type = "xxx" name="foo"
-        data = JSON.parse(data) //如果不用箭头函数 this的值会变成 ws
+        //let {type,name} = node  type = "xxx" na                                 me="foo"
         //服务器先发过来画布的状态（每个点的状态 
-
-        if(data.type === 'init'){
+        if(Object.prototype.toString.call(data) === '[object Blob]'){
+          console.log("blob data ")
+          var tmpUrl = URL.createObjectURL(data)
+          var image = new Image()
+          image.src = tmpUrl 
+          image.onload = () => { //获取src立刻draw不上 要等一下 
+            ctx.drawImage(image,0,0)
+          }
+        }else {
+          data = JSON.parse(data) //如果不用箭头函数 this的值会变成 ws
+          //字符串数据才需要JSON.parse
+           //if(data.type === 'init'){ //存成png后就 不会发过来这个type的信息了
           // this.pixelData = data.pixelData
-          this.width = data.pixelData[0].length
-          this.height = data.pixelData.length
-          Vue.nextTick(() => { //要canvas被重新渲染之后才画 
-            data.pixelData.forEach((row,y) => {
-              row.forEach((color,x) => {
-                ctx.fillStyle = color
-                ctx.fillRect(x,y,1,1)
-              }) 
-            })
-          })
-        } else if(data.type == "updatedot"){
+          // this.width = data.pixelData[0].length
+          // this.height = data.pixelData.length 
+          // Vue.nextTick(() => { //要canvas被重新渲染之后才画 
+          //   data.pixelData.forEach((row,y) => {
+          //     row.forEach((color,x) => {
+          //       ctx.fillStyle = color
+          //       ctx.fillRect(x,y,1,1)
+          //     }) 
+          //   })
+          // })
+          //} else 
+          if(data.type == "updatedot"){
           // Vue.set(this.pixelData[data.y],data.x ,data.color)
           //对象，要设置的属性，设置为的值
-          ctx.fillStyle = data.color
-          ctx.fillRect(data.x,data.y,1,1)
+            ctx.fillStyle = data.color
+            ctx.fillRect(data.x,data.y,1,1)
+          }
         }
       }
     }
