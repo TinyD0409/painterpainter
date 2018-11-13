@@ -11,8 +11,8 @@ const server = http.createServer(app)
 
 const wss = new ws.Server({server})
 
-const width = 256
-const height = 256
+const width = 1280
+const height = 720
 
 main()
 async function main(){
@@ -23,7 +23,7 @@ async function main(){
   } catch(e){
     // pixelData = new Array(height).fill(0).map(it => new Array(width).fill('white'))
     //用png的方式储存canvas画布上的内容
-    img = new Jimp(256,256,0xffffffff)
+    img = new Jimp(1280,720,0xffffffff)
   }
   
   var lastUpdate = 0

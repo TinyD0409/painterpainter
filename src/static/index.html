@@ -21,25 +21,67 @@
     canvas{
       /* width:200px; 如果canvas设置了大小，放大时会按显示的宽高来算，这样很容易就超出画布范围 */
     }
+    .canvas-wrapper {
+      border: 2px solid;
+      /*display: inline-block;*/
+      width: max-content;
+      position: relative;
+      width: 1280px;
+      height: 720px;
+      overflow: hidden;
+      margin: 0 auto;
+    }
+    canvas {
+      position: absolute;
+      box-shadow: 0 0 5px grey;
+      /*transform: scale(2);*/
+      transform-origin: top left;
+    }
+    .common-colors {
+      background-color: #eee;
+      padding: 3px;
+      margin: 0 auto;
+      width: 1280px;
+    }
+    button {
+      margin-right: 20px;
+    }
+    input {
+      margin-right: 20px;
+    }
+    .color-card {
+      width: 22px;
+      height: 22px;
+      background-color: currentColor;
+      border-radius: 3px;
+      display: inline-block;
+      margin: 5px;
+      vertical-align: bottom;
+    }
+    .color-card.active {
+      border: 2px solid;
+      margin: 3px;
+    }
   </style>
 </head>
 <body>
   <div id="app">
-    <div class="canvas">
+    <div class="canvas-wrapper">
       <!--<div class="row" v-for="(row,y) in pixelData">
         <span @click="drawdot(x,y,color)" class="dot" v-for="(dotColor,x) in row" :style="{background:dotColor}"></span>
       </div> 被性能优化掉了-->
       <canvas @click="handleCanvasClick" ref="canvas" :width="width" :height="height"> </canvas>
     </div>
-    <button @click="isPickingColor=true">{{isPickingColor ? '正在取色' : '取色'}}</button>
-   
-    <input type="color" v-model="color"> 
+
     <!-- 颜色选择器可以用饿了吗上的组件 -->
-    <label v-for="c of commonColors" :style="{color:c.name}"> 
-      <!-- 对象里不许有；所以插值的style也不能有分号的结尾 -->
+    <!--<label v-for="c of commonColors" :style="{color:c.name}"> 
+       对象里不许有；所以插值的style也不能有分号的结尾 
       <input type="radio" v-model="color" :value="c.value" >{{c.name}}
-    </label>
+    </label>-->
     <div class="common-colors">
+      <button @click="startPickingColor">{{isPickingColor ? '正在取色' : '取色'}}</button>
+   
+      <input type="color" v-model="color"> 
       <span v-for="c of commonColors" @click="color=c" :class="{'color-card':true,active:c==color}" :style="{color:c}"></span>
     </div> 
   </div>
@@ -51,30 +93,42 @@
     data(){
       return {
         pixelData:[],
-        commonColors:[{
-          name:'red',
-          value:'#ff0000'
-        },{
-          name:'yellow',
-          value:'#ffff00'
-        },{
-          name:'green',
-          value:'#008000'
-        },{
-          name:'blue',
-          value:'#0000ff'
-        },{
-          name:'black',
-          value:'#000000'
-        }],
-        // commonColors: ["#000000", "#ffffff", "#aaaaaa", "#555555", "#fed3c7", "#ffc4ce", "#faac8e", "#ff8b83", "#f44336", "#e91e63", "#e2669e", "#9c27b0", "#673ab7", "#3f51b5", "#004670", "#057197", "#2196f3", "#00bcd4", "#3be5db", "#97fddc", "#167300", "#37a93c", "#89e642", "#d7ff07", "#fff6d1", "#f8cb8c", "#ffeb3b", "#ffc107", "#ff9800", "#ff5722", "#b83f27", "#795548"],
+        commonColors: ["#000000", "#ffffff", "#aaaaaa", "#555555", "#fed3c7", "#ffc4ce", "#faac8e", "#ff8b83", "#f44336", "#e91e63", "#e2669e", "#9c27b0", "#673ab7", "#3f51b5", "#004670", "#057197", "#2196f3", "#00bcd4", "#3be5db", "#97fddc", "#167300", "#37a93c", "#89e642", "#d7ff07", "#fff6d1", "#f8cb8c", "#ffeb3b", "#ffc107", "#ff9800", "#ff5722", "#b83f27", "#795548"],
         color:'#ff0000',
-        width:256,
-        height:256,
+        width:1280,
+        height:720,
         isPickingColor:false,
       }
     },
     methods:{
+      makeCursorImgUrl(color) {
+        var cursor = document.createElement('canvas')
+        var ctx = cursor.getContext('2d')
+        cursor.width = 41
+        cursor.height = 41
+        ctx.beginPath()
+        ctx.lineWidth = 2
+        ctx.strokeStyle = '#000000'
+        ctx.moveTo(0, 6)
+        ctx.lineTo(12, 6)
+        ctx.moveTo(6, 0)
+        ctx.lineTo(6, 12)
+        ctx.stroke()
+
+        ctx.beginPath()
+        ctx.arc(25, 25, 14, 0, 2 * Math.PI, false)
+        ctx.lineWidth = 2
+        ctx.strokeStyle = '#000000'
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.arc(25, 25, 13.4, 0, 2 * Math.PI, false)
+        ctx.fillStyle = color
+        ctx.fill()
+
+        // document.getElementById('canvas').style.cursor = 'crosshair'
+        // document.getElementById('canvas').style.cursor = 'url(' + cursor.toDataURL() + ') 6 6, crosshair'
+        return cursor.toDataURL()
+      },
       //子父通信 时候 ，自定义事件，一个事件 里面其实可能包着好多个事件 
       handleCanvasClick(e){ //一个函数分发两种情况
         console.log(e.offsetX,e.offsetY)
@@ -91,14 +145,30 @@
         
         return '#' + dot[0] + dot[1] + dot[2]
       },
-      pickColor(e){
-        var x = e.layerX
-        var y = e.layerY
+      updateCursor(e) {
+        var color = this.getCurrHoverColor(e)
+        var cursorUrl = this.makeCursorImgUrl(color)
+        console.log(color,cursorUrl)
+        this.$refs.canvas.style.cursor = `url(${cursorUrl}) 6 6, crosshair`;
+      },
+      startPickingColor () {
+        this.isPickingColor = true
+        this.$refs.canvas.addEventListener('mousemove',this.updateCursor)
+      },
+      getCurrHoverColor(e) {
+        var x = e.offsetX
+        var y = e.offsetY
         var p = this.ctx.getImageData(x,y,1,1).data
-        //int8ClampedArray(4) [255, 255, 255, 255] 取到的是1*1的rgba颜色数组，而如果是2*2则是返回四个点16项的数组
         var hexColor = this.rgba2hex(p)
+        return hexColor
+      },
+      pickColor(e){
+        //int8ClampedArray(4) [255, 255, 255, 255] 取到的是1*1的rgba颜色数组，而如果是2*2则是返回四个点16项的数组
+        var hexColor = this.getCurrHoverColor(e)
         this.color = hexColor
         this.isPickingColor = false
+        this.$refs.canvas.removeEventListener('mousemove',this.updateCursor)
+        this.$refs.canvas.style.cursor = ''
       },
       drawdot(e){
         this.ws.send(JSON.stringify({
