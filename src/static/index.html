@@ -14,10 +14,6 @@
       height:10px;
       border:2px solid;
     }
-    .canvas{
-      border:2px solid;
-      width:max-content;
-    }
     canvas{
       /* width:200px; 如果canvas设置了大小，放大时会按显示的宽高来算，这样很容易就超出画布范围 */
     }
@@ -50,10 +46,10 @@
       margin-right: 20px;
     }
     .color-card {
-      width: 22px;
-      height: 22px;
+      width: 25px;
+      height: 25px;
       background-color: currentColor;
-      border-radius: 3px;
+      border-radius: 2px;
       display: inline-block;
       margin: 5px;
       vertical-align: bottom;
@@ -70,7 +66,7 @@
       <!--<div class="row" v-for="(row,y) in pixelData">
         <span @click="drawdot(x,y,color)" class="dot" v-for="(dotColor,x) in row" :style="{background:dotColor}"></span>
       </div> 被性能优化掉了-->
-      <canvas @click="handleCanvasClick" ref="canvas" :width="width" :height="height"> </canvas>
+      <canvas @mousedown="prepareDrag" @click="handleCanvasClick" ref="canvas" :width="width" :height="height" style="top:0px;left:0px;"> </canvas>
     </div>
 
     <!-- 颜色选择器可以用饿了吗上的组件 -->
@@ -98,9 +94,38 @@
         width:1280,
         height:720,
         isPickingColor:false,
+        zoomFactor: 1
       }
     },
     methods:{
+      prepareDrag(e){
+        var canvas = this.$refs.canvas
+        var startX = e.clientX
+        var startY = e.clientY
+        var posX = parseInt(canvas.style.left)
+        var posY = parseInt(canvas.style.top)
+        var moveHandler
+        var upHandler
+        var moved = false
+        canvas.addEventListener('mousemove', moveHandler = e => {
+          var currX = e.clientX
+          var currY = e.clientY
+          var diffX = currX - startX
+          var diffY = currY - startY
+          if (diffX > 1 && diffY > 1){
+            moved = true
+          }
+          canvas.style.left = posX + diffX + 'px'
+          canvas.style.top = posY + diffY + 'px'
+        })
+        canvas.addEventListener('mouseup', upHandler = e => {
+          canvas.removeEventListener('mousemove', moveHandler)
+          canvas.removeEventListener('mouseup', upHandler)
+          if (!moved) {
+            this.handleCanvasClick(e)
+          }
+        })
+      },
       makeCursorImgUrl(color) {
         var cursor = document.createElement('canvas')
         var ctx = cursor.getContext('2d')
@@ -171,15 +196,47 @@
         this.$refs.canvas.style.cursor = ''
       },
       drawdot(e){
+        var clientX = e.clientX
+        var clientY = e.clientY
+        var rect = this.$refs.canvas.getBoundingClientRect()
+        var x = (clientX - rect.left) / this.zoomFactor
+        var y = (clientY - rect.top) / this.zoomFactor
+        // 鼠标距离浏览器边缘的位置 - 元素到历览器边缘的位置 = 鼠标这个点在画布的位置
         this.ws.send(JSON.stringify({
           type: 'drawdot',
-          x:e.layerX,
-          y:e.layerY,
+          x: parseInt(x),
+          y: parseInt(y),
           color:this.color,
         }))
+      },
+      initZoom() {
+        console.log('init')
+        // 注意 ：DOMMouseScroll 区分大小写，无法在html中直接解析  且不支持chrome
+        var canvas = this.$refs.canvas
+        this.$refs.canvas.parentNode.addEventListener('mousewheel', (e) => {
+          console.log(e)
+          e.preventDefault()
+          if (e.deltaY < 0) {
+            this.zoomFactor = this.zoomFactor * 1.25
+          } else {
+            this.zoomFactor = this.zoomFactor * 0.8
+          }
+          if(this.zoomFactor < 1) {
+            this.zoomFactor = 1
+          }
+          if(this.zoomFactor > 40) {
+            this.zoomFactor = this.zoomFactor * 0.8
+          }
+          if (this.zoomFactor == 1) {
+            canvas.style.left = '0px'
+            canvas.style.top = '0px'
+          }
+          canvas.style.transform = `scale(${this.zoomFactor})`
+        })
       }
     },
     mounted(){ //这种写法不是=>这种this会变的function ，就是传统的function
+      this.initZoom()
       var ws = new WebSocket('ws://localhost:9095/pixel')
       //var ws = io()
       this.ws = ws 
