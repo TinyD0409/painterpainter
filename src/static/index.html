@@ -29,8 +29,9 @@
     }
     canvas {
       position: absolute;
+      top: 0;
+      left: 0;
       box-shadow: 0 0 5px grey;
-      /*transform: scale(2);*/
       transform-origin: top left;
     }
     .common-colors {
@@ -66,7 +67,7 @@
       <!--<div class="row" v-for="(row,y) in pixelData">
         <span @click="drawdot(x,y,color)" class="dot" v-for="(dotColor,x) in row" :style="{background:dotColor}"></span>
       </div> 被性能优化掉了-->
-      <canvas @mousedown="prepareDrag" ref="canvas" :width="width" :height="height" style="top:0px;left:0px;"> </canvas>
+      <canvas @mousedown="prepareDrag" ref="canvas" :width="width" :height="height" style="top:0px;left:0px;transform: none;"> </canvas>
     </div>
 
     <!-- 颜色选择器可以用饿了吗上的组件 -->
@@ -84,6 +85,7 @@
   </div>
 </body>
 <script src="./vue-2.5.17.js"></script>
+<script src="/socket.io/socket.io.js"></script>
 <script>
   const app = new Vue({
     el:'#app',
@@ -125,14 +127,13 @@
           var diffX = currX - startX
           var diffY = currY - startY
           console.log(diffX,diffY)
-          if (Math.sqrt(diffX ** 2 + diffY ** 2) > 1.42){
+          if (Math.sqrt(diffX ** 2 + diffY ** 2) > 3){
             moved = true
           }
           console.log(moved)
           canvas.removeEventListener('mousemove', moveHandler)
           canvas.removeEventListener('mouseup', upHandler)
           if (!moved) {
-            debugger
             this.handleCanvasClick(e)
           }
         })
@@ -213,12 +214,15 @@
         var x = (clientX - rect.left) / this.zoomFactor
         var y = (clientY - rect.top) / this.zoomFactor
         // 鼠标距离浏览器边缘的位置 - 元素到历览器边缘的位置 = 鼠标这个点在画布的位置
-        this.ws.send(JSON.stringify({
-          type: 'drawdot',
-          x: parseInt(x),
-          y: parseInt(y),
+        x = parseInt(x)
+        y = parseInt(y)
+        this.ws.emit('drawDot', {
+          x: x,
+          y: y,
           color:this.color,
-        }))
+        })
+        this.ctx.fillStyle = this.color
+        this.ctx.fillRect(x, y, 1, 1)
       },
       handleZoom(e) {
         console.log('init')
@@ -241,11 +245,28 @@
             canvas.style.left = '0px'
             canvas.style.top = '0px'
           }
+          var clientX = e.clientX
+          var clientY = e.clientY
+          var rect = this.$refs.canvas.getBoundingClientRect()
+          if(e.deltaY < 0 && this.zoomFactor !== 1) {
+            var x = (clientX - rect.left) * 0.25
+            var y = (clientY - rect.top) * 0.25
+          } else if (e.deltaY > 0 && this.zoomFactor !== 1) {
+            var x = (rect.left - clientX) * 0.2
+            var y = (rect.top - clientY) * 0.2
+          }
+
+          //debugger
+          //canvas.style.cssText = 'transform-origin:' + x + 'px ' + y + 'px;'
           canvas.style.transform = `scale(${this.zoomFactor})`
+          //translate(${x*1.25}, ${y*1.25})
+          canvas.style.left = parseInt(canvas.style.left) - x + 'px'
+          canvas.style.top = parseInt(canvas.style.top) - y + 'px'
+          console.log('canvastransformorigin', x, y)
       }
     },
     mounted(){ //这种写法不是=>这种this会变的function ，就是传统的function
-      var ws = new WebSocket(`ws://${location.host}/pixel`)
+      var ws = io()
       console.log(ws)
       //var ws = io()
       this.ws = ws 
@@ -253,50 +274,73 @@
       canvas.style.imageRendering = 'pixelated' //在浏览器中的图片显示不有模糊效果
       var ctx = canvas.getContext('2d')
       this.ctx = ctx 
-      ws.onmessage = (e) => {
+      ws.on('init', imgBinaryData => {
+        console.log('加载图片初始状态使用', imgBinaryData.byteLength,'字节')
+        var blob = new Blob([new Uint8Array(imgBinaryData)])
+        var tmpUrl = URL.createObjectURL(blob)
+        var image = new Image()
+        image.src = tmpUrl 
+        image.onload = () => {
+          ctx.drawImage(image,0,0)
+        }
+      })
+      ws.on('onlineCount', data => {
+        console.log(data)
+        this.onlineCount = data.count
+      })
+      ws.on('updateDot', operationList => {
+          // Vue.set(this.pixelData[data.y],data.x ,data.color)
+          //对象，要设置的属性，设置为的值
+          //console.log(operationList)
+        operationList.forEach(data => {
+          ctx.fillStyle = data.color
+          ctx.fillRect(data.x, data.y, 1, 1)
+        })
+      })
+      //ws.onmessage = (e) => {
         //以图片形式储存之后 传来的就有可能是一个 blob了
         // 不能用之前结构赋值的方法直接读data字段
-        var data = e.data 
+        //var data = e.data 
       // ws.onmessage = ({data}) => {  
         //传进来的参数不管，把这个参数的data字段拿出来赋值了
         //解构赋值
         //let node = { type:"xxx",name:"foo"}
         //let {type,name} = node  type = "xxx" na                                 me="foo"
         //服务器先发过来画布的状态（每个点的状态 
-        if(Object.prototype.toString.call(data) === '[object Blob]'){
-          console.log("blob data ")
-          var tmpUrl = URL.createObjectURL(data)
-          var image = new Image()
-          image.src = tmpUrl 
-          image.onload = () => { //获取src立刻draw不上 要等一下 
-            ctx.drawImage(image,0,0)
-          }
-        } else {
-          data = JSON.parse(data) //如果不用箭头函数 this的值会变成 ws
-          //字符串数据才需要JSON.parse
-           //if(data.type === 'init'){ //存成png后就 不会发过来这个type的信息了
-          // this.pixelData = data.pixelData
-          // this.width = data.pixelData[0].length
-          // this.height = data.pixelData.length 
-          // Vue.nextTick(() => { //要canvas被重新渲染之后才画 
-          //   data.pixelData.forEach((row,y) => {
-          //     row.forEach((color,x) => {
-          //       ctx.fillStyle = color
-          //       ctx.fillRect(x,y,1,1)
-          //     }) 
-          //   })
-          // })
-          //} else 
-          if(data.type == "updatedot"){
-          // Vue.set(this.pixelData[data.y],data.x ,data.color)
-          //对象，要设置的属性，设置为的值
-            ctx.fillStyle = data.color
-            ctx.fillRect(data.x,data.y, 1, 1)
-          } else if (data.type = 'onlineCount') {
-            this.onlineCount = data.count
-          }
-        }
-      }
+        // if(Object.prototype.toString.call(data) === '[object Blob]'){
+        //   console.log("blob data ")
+        //   var tmpUrl = URL.createObjectURL(data)
+        //   var image = new Image()
+        //   image.src = tmpUrl 
+        //   image.onload = () => { //获取src立刻draw不上 要等一下 
+        //     ctx.drawImage(image,0,0)
+        //   }
+        // } else {
+        //   data = JSON.parse(data) //如果不用箭头函数 this的值会变成 ws
+        //   //字符串数据才需要JSON.parse
+        //    //if(data.type === 'init'){ //存成png后就 不会发过来这个type的信息了
+        //   // this.pixelData = data.pixelData
+        //   // this.width = data.pixelData[0].length
+        //   // this.height = data.pixelData.length 
+        //   // Vue.nextTick(() => { //要canvas被重新渲染之后才画 
+        //   //   data.pixelData.forEach((row,y) => {
+        //   //     row.forEach((color,x) => {
+        //   //       ctx.fillStyle = color
+        //   //       ctx.fillRect(x,y,1,1)
+        //   //     }) 
+        //   //   })
+        //   // })
+        //   //} else 
+        //   if(data.type == "updateDot"){
+        //   // Vue.set(this.pixelData[data.y],data.x ,data.color)
+        //   //对象，要设置的属性，设置为的值
+        //     ctx.fillStyle = data.color
+        //     ctx.fillRect(data.x,data.y, 1, 1)
+        //   } else if (data.type = 'onlineCount') {
+        //     this.onlineCount = data.count
+        //   }
+        // }
+      //}
     }
   })
 </script>
