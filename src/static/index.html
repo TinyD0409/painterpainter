@@ -62,11 +62,11 @@
 </head>
 <body>
   <div id="app">
-    <div class="canvas-wrapper">
+    <div @mousewheel="handleZoom" class="canvas-wrapper">
       <!--<div class="row" v-for="(row,y) in pixelData">
         <span @click="drawdot(x,y,color)" class="dot" v-for="(dotColor,x) in row" :style="{background:dotColor}"></span>
       </div> 被性能优化掉了-->
-      <canvas @mousedown="prepareDrag" @click="handleCanvasClick" ref="canvas" :width="width" :height="height" style="top:0px;left:0px;"> </canvas>
+      <canvas @mousedown="prepareDrag" ref="canvas" :width="width" :height="height" style="top:0px;left:0px;"> </canvas>
     </div>
 
     <!-- 颜色选择器可以用饿了吗上的组件 -->
@@ -74,6 +74,7 @@
        对象里不许有；所以插值的style也不能有分号的结尾 
       <input type="radio" v-model="color" :value="c.value" >{{c.name}}
     </label>-->
+    <div>在线人数：{{onlineCount}} </div>
     <div class="common-colors">
       <button @click="startPickingColor">{{isPickingColor ? '正在取色' : '取色'}}</button>
    
@@ -82,7 +83,7 @@
     </div> 
   </div>
 </body>
-<script src="vue-2.5.17.js"></script>
+<script src="./vue-2.5.17.js"></script>
 <script>
   const app = new Vue({
     el:'#app',
@@ -94,7 +95,8 @@
         width:1280,
         height:720,
         isPickingColor:false,
-        zoomFactor: 1
+        zoomFactor: 1,
+        onlineCount: 0
       }
     },
     methods:{
@@ -112,16 +114,25 @@
           var currY = e.clientY
           var diffX = currX - startX
           var diffY = currY - startY
-          if (diffX > 1 && diffY > 1){
-            moved = true
-          }
           canvas.style.left = posX + diffX + 'px'
           canvas.style.top = posY + diffY + 'px'
+          console.log('mousemove')
         })
         canvas.addEventListener('mouseup', upHandler = e => {
+          //debugger
+          var currX = e.clientX
+          var currY = e.clientY
+          var diffX = currX - startX
+          var diffY = currY - startY
+          console.log(diffX,diffY)
+          if (Math.sqrt(diffX ** 2 + diffY ** 2) > 1.42){
+            moved = true
+          }
+          console.log(moved)
           canvas.removeEventListener('mousemove', moveHandler)
           canvas.removeEventListener('mouseup', upHandler)
           if (!moved) {
+            debugger
             this.handleCanvasClick(e)
           }
         })
@@ -209,11 +220,10 @@
           color:this.color,
         }))
       },
-      initZoom() {
+      handleZoom(e) {
         console.log('init')
-        // 注意 ：DOMMouseScroll 区分大小写，无法在html中直接解析  且不支持chrome
+        // 注意 ：DOMMouseScroll 区分大小写，无法在vue的html中直接解析，要用addEventListener绑定（放在mounted里  且不支持chrome
         var canvas = this.$refs.canvas
-        this.$refs.canvas.parentNode.addEventListener('mousewheel', (e) => {
           console.log(e)
           e.preventDefault()
           if (e.deltaY < 0) {
@@ -232,12 +242,11 @@
             canvas.style.top = '0px'
           }
           canvas.style.transform = `scale(${this.zoomFactor})`
-        })
       }
     },
     mounted(){ //这种写法不是=>这种this会变的function ，就是传统的function
-      this.initZoom()
-      var ws = new WebSocket('ws://localhost:9095/pixel')
+      var ws = new WebSocket(`ws://${location.host}/pixel`)
+      console.log(ws)
       //var ws = io()
       this.ws = ws 
       var canvas = this.$refs.canvas
@@ -262,7 +271,7 @@
           image.onload = () => { //获取src立刻draw不上 要等一下 
             ctx.drawImage(image,0,0)
           }
-        }else {
+        } else {
           data = JSON.parse(data) //如果不用箭头函数 this的值会变成 ws
           //字符串数据才需要JSON.parse
            //if(data.type === 'init'){ //存成png后就 不会发过来这个type的信息了
@@ -282,7 +291,9 @@
           // Vue.set(this.pixelData[data.y],data.x ,data.color)
           //对象，要设置的属性，设置为的值
             ctx.fillStyle = data.color
-            ctx.fillRect(data.x,data.y,1,1)
+            ctx.fillRect(data.x,data.y, 1, 1)
+          } else if (data.type = 'onlineCount') {
+            this.onlineCount = data.count
           }
         }
       }

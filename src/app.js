@@ -20,7 +20,7 @@ async function main(){
   try {
     // pixelData = require('./pixel.json')
     img = await Jimp.read(path.join(__dirname,'./pixel.png'))
-  } catch(e){
+  } catch(e) {
     // pixelData = new Array(height).fill(0).map(it => new Array(width).fill('white'))
     //用png的方式储存canvas画布上的内容
     img = new Jimp(1280,720,0xffffffff)
@@ -53,7 +53,23 @@ async function main(){
       //type:'init',
       //pixelData: pixelData,
     //}))
-  
+    
+    //有人进来发送一个json,而且每来一个人都要广播一下,而不是给一个人发
+    wss.clients.forEach(ws => {
+      ws.send(JSON.stringify({
+        type: 'onlineCount',
+        count: wss.clients.size,
+      }))
+    })
+    //有人走 也发送一个json
+    ws.on('close', () => {
+      wss.clients.forEach(ws => {
+        ws.send(JSON.stringify({
+          type: 'onlineCount',
+          count: wss.clients.size,
+        }))
+      })
+    })
     var lastDraw = 0
   
     //监听 点的哪个点被点 ，想所有用户 发送回去
