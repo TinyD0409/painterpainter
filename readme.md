@@ -1,4 +1,4 @@
-![](C:\Users\Tiny D\Desktop\pixelpainter\src\static\oscar.png)
+![](.\src\static\oscar.png)
 
 ![](https://img.shields.io/badge/npm-v10.10.0-green.svg) ![](https://img.shields.io/badge/express-v4.16.4-green.svg)![](https://img.shields.io/badge/jimp-v0.5.4-green.svg) ![](https://img.shields.io/badge/socket.io-v2.1.1-green.svg) ![](https://img.shields.io/badge/websocket-v6.1.0-green.svg)
 
