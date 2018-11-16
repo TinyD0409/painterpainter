@@ -1,12 +1,12 @@
-![](.\src\static\oscar.png)
+![](./src/static/oscar.png)
 
-![](https://img.shields.io/badge/npm-v10.10.0-green.svg) ![](https://img.shields.io/badge/express-v4.16.4-green.svg)![](https://img.shields.io/badge/jimp-v0.5.4-green.svg) ![](https://img.shields.io/badge/socket.io-v2.1.1-green.svg) ![](https://img.shields.io/badge/websocket-v6.1.0-green.svg)
+[![npm](https://img.shields.io/badge/npm-v10.10.0-green.svg)](https://www.npmjs.com/package/npm) [![](https://img.shields.io/badge/express-v4.16.4-green.svg)](https://www.npmjs.com/package/express) [![](https://img.shields.io/badge/jimp-v0.5.4-green.svg)](https://www.npmjs.com/package/jimp) [![](https://img.shields.io/badge/socket.io-v2.1.1-green.svg)](https://www.npmjs.com/package/socket.io) [![](https://img.shields.io/badge/websocket-v6.1.0-green.svg)](https://www.npmjs.com/package/websocket)
 
 # Pixel Painter
 
 ### 主要功能
 
-* 使用canvas绘制，以节省内存提升性能
+* 使用canvas绘制，以节省内存提升性能 ⚡
 * 使用websocket进行实时传输
 * 使用express构建http服务器
 * 使用ws模块构建websocket后端并且与express集成
